@@ -6,6 +6,17 @@
 - 大更新（新功能、较大改动）：`x.y.z → x.(y+1).0`
 - 破坏性重构才升主版本号
 
+## [1.1.0] - 2026-11-21
+
+发布机制与部署配置升级：
+
+- Docker 默认端口改为 **8100**（宿主机 8100 → 容器 8000），同步前端默认地址与文档
+- 新增 NAS 部署包打包脚本（`scripts/package_nas.sh`），一键生成带版本号的部署包
+- 新增自动化发布流程：打 `v*` 标签时 GitHub Actions 自动构建 NAS 包与 Android APK、创建 Release 并上传两个资产
+- 新增本地发版脚本 `scripts/release.sh`（升版本 → 打 tag → 推送触发发布）
+- APK 版本号改为自动读取根目录 VERSION（versionName=版本、versionCode 由 x.y.z 生成），本地与 CI 编译均自动同步
+- 今后每个版本 Release 均附带 NAS 部署包 + APK
+
 ## [1.0.0] - 2026-11-21
 
 首个版本，完成核心功能：
