@@ -2,11 +2,11 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// API 客户端。baseUrl 默认为本机，部署时改成 NAS 地址（如 http://192.168.1.10:8000）。
+/// API 客户端。baseUrl 默认为本机，部署时改成 NAS 地址（如 http://192.168.1.10:8100）。
 class Api {
-  static String baseUrl = "http://127.0.0.1:8000";
+  static String baseUrl = "http://127.0.0.1:8100";
   static String? _token;
-  static const String version = "1.0.0";
+  static const String version = "1.1.0";
 
   static Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
