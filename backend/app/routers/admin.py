@@ -61,6 +61,16 @@ def adjust(payload: schemas.AdjustIn, admin: models.User = Depends(get_current_a
     return schemas.TransactionOut.model_validate(tx)
 
 
+# ---------- 退款（撤销交易） ----------
+@router.post("/refund/{tx_id}", response_model=schemas.TransactionOut)
+def refund_transaction(tx_id: int, admin: models.User = Depends(get_current_admin), db: Session = Depends(get_db)):
+    try:
+        rtx = trade_service.refund(db, tx_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return schemas.TransactionOut.model_validate(rtx)
+
+
 # ---------- 费率配置 ----------
 @router.get("/fee-config", response_model=schemas.FeeConfigOut)
 def get_fee_config(admin: models.User = Depends(get_current_admin), db: Session = Depends(get_db)):
