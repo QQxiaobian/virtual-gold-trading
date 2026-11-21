@@ -6,6 +6,13 @@
 - 大更新（新功能、较大改动）：`x.y.z → x.(y+1).0`
 - 破坏性重构才升主版本号
 
+## [1.1.2] - 2026-11-21
+
+部署故障修复：
+
+- 修复 Android APK 无法连接服务器：release 版 AndroidManifest 缺少 `INTERNET` 权限且未允许明文 HTTP，导致 APP 所有网络请求失败。现已补充网络权限并开启 `usesCleartextTraffic`，可正常访问 `http://<NAS_IP>:8100`
+- 修复 Web 端 403：Web 静态文件改为直接构建进 nginx 镜像（`web/Dockerfile`），不再依赖 NAS 上的相对路径挂载，避免飞牛等 NAS 图形界面部署时挂载目录错误导致的 403
+
 ## [1.1.1] - 2026-11-21
 
 问题修复与 Web 端部署：
