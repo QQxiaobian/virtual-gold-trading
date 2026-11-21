@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+backend/.venv/
+
+# 数据与密钥（绝不提交）
+*.db
+*.db-shm
+*.db-wal
+backend/data/
+.env
+backend/.env
+
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+app/build/
+app/.dart_tool/
+*.apk
+*.aab
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+.DS_Store
+*.log

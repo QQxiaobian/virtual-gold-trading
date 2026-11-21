@@ -1,0 +1,17 @@
+version: "3.8"
+
+services:
+  backend:
+    build: ./backend
+    container_name: gold-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/data:/app/data          # 数据库持久化
+    environment:
+      - TZ=Asia/Shanghai
+      - SECRET_KEY=${SECRET_KEY:-CHANGE-ME-TO-A-RANDOM-64-CHAR-STRING}
+      - INIT_ADMIN_USERNAME=${INIT_ADMIN_USERNAME:-admin}
+      - INIT_ADMIN_PASSWORD=${INIT_ADMIN_PASSWORD:-admin123}
+      - PRICE_FETCH_INTERVAL_SECONDS=${PRICE_FETCH_INTERVAL_SECONDS:-30}
