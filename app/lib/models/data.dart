@@ -67,24 +67,38 @@ class PricePoint {
 
 class FeeConfig {
   String feeMode;
-  double buyFeeRate, sellFeeRate, buyFeePerGram, sellFeePerGram, minFee;
-  bool allowUserRecharge;
+  double buyFeeRate, sellFeeRate, buyFeePerGram, sellFeePerGram, minFee, buySellSpread;
+  bool allowUserRecharge, allowRegister;
   FeeConfig({
     required this.feeMode, required this.buyFeeRate, required this.sellFeeRate,
     required this.buyFeePerGram, required this.sellFeePerGram, required this.minFee,
-    this.allowUserRecharge = false,
+    this.allowUserRecharge = false, this.allowRegister = false, this.buySellSpread = 0.0006,
   });
   factory FeeConfig.fromJson(Map<String, dynamic> j) => FeeConfig(
         feeMode: j['fee_mode'] ?? 'percent', buyFeeRate: Portfolio._d(j['buy_fee_rate']),
         sellFeeRate: Portfolio._d(j['sell_fee_rate']), buyFeePerGram: Portfolio._d(j['buy_fee_per_gram']),
         sellFeePerGram: Portfolio._d(j['sell_fee_per_gram']), minFee: Portfolio._d(j['min_fee']),
+        buySellSpread: Portfolio._d(j['buy_sell_spread']) == 0 ? 0.0006 : Portfolio._d(j['buy_sell_spread']),
         allowUserRecharge: j['allow_user_recharge'] == true || j['allow_user_recharge'] == '1' || j['allow_user_recharge'] == 'true',
+        allowRegister: j['allow_register'] == true || j['allow_register'] == '1' || j['allow_register'] == 'true',
       );
   Map<String, dynamic> toJson() => {
         'fee_mode': feeMode,
         'buy_fee_rate': '$buyFeeRate', 'sell_fee_rate': '$sellFeeRate',
         'buy_fee_per_gram': '$buyFeePerGram', 'sell_fee_per_gram': '$sellFeePerGram',
         'min_fee': '$minFee',
+        'buy_sell_spread': '$buySellSpread',
         'allow_user_recharge': allowUserRecharge ? '1' : '0',
+        'allow_register': allowRegister ? '1' : '0',
       };
+}
+
+/// 实时行情买卖价
+class PriceQuote {
+  final double price, buyPrice, sellPrice, spread;
+  PriceQuote({required this.price, required this.buyPrice, required this.sellPrice, required this.spread});
+  factory PriceQuote.fromJson(Map<String, dynamic> j) => PriceQuote(
+        price: Portfolio._d(j['price']), buyPrice: Portfolio._d(j['buy_price']),
+        sellPrice: Portfolio._d(j['sell_price']), spread: Portfolio._d(j['spread']),
+      );
 }
