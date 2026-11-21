@@ -1,12 +1,26 @@
 """应用配置：全部可通过环境变量覆盖，便于 Docker 部署。"""
+import os
 from pydantic_settings import BaseSettings
 from functools import lru_cache
+
+
+def _read_version() -> str:
+    """优先读项目根的 VERSION 文件，避免版本号写死导致显示旧版本。"""
+    for p in (os.environ.get("VERSION_FILE"), "/app/VERSION", "VERSION"):
+        if p and os.path.isfile(p):
+            try:
+                v = open(p, encoding="utf-8").read().strip()
+                if v:
+                    return v
+            except OSError:
+                pass
+    return "1.2.0"
 
 
 class Settings(BaseSettings):
     # 基础
     APP_NAME: str = "虚拟黄金交易系统"
-    VERSION: str = "1.0.0"
+    VERSION: str = _read_version()
     DEBUG: bool = False
 
     # 安全：部署时务必修改为随机长字符串
@@ -30,6 +44,9 @@ class Settings(BaseSettings):
 
     # 用户充值开关：默认关闭，需管理员在后台开启后普通用户才能自助充值
     DEFAULT_ALLOW_USER_RECHARGE: bool = False
+
+    # 用户自助注册开关：默认关闭，开启后登录页显示注册入口
+    DEFAULT_ALLOW_REGISTER: bool = False
 
     # 初始管理员（首次启动自动创建，请尽快改密码）
     INIT_ADMIN_USERNAME: str = "admin"
