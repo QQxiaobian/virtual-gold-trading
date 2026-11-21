@@ -4,6 +4,7 @@
 返回字段（逗号分隔）：当前价, 涨跌?, 买价, 卖价, 最高, 最低, 时间, 昨收, 今开, ...
 """
 import re
+import json
 import httpx
 from datetime import datetime
 from sqlalchemy.orm import Session
@@ -86,6 +87,65 @@ def fetch_and_store(db: Session) -> float | None:
         db.add(models.PriceHistory(price=price, source="sina"))
         db.commit()
     return price
+
+
+SINA_XAU_KLINE = ("https://stock2.finance.sina.com.cn/futures/api/jsonp.php/"
+                  "var%20_t=/GlobalFuturesService.getGlobalFuturesDailyKLine?symbol=XAU")
+
+
+def backfill_history(db: Session, days: int = 400) -> int:
+    """首次部署时回填历史走势数据。
+
+    新浪 XAU 日K 是美元/盎司，直接用作元/克会放大约 4.7 倍。
+    这里按其最新收盘价缩放对齐到当前实时金价（元/克），保留真实涨跌形状，
+    末端与当前报价衔接。已存在的同日记录会跳过，避免重复。
+    """
+    try:
+        with httpx.Client(timeout=15, follow_redirects=True) as client:
+            r = client.get(SINA_XAU_KLINE, headers=SINA_HEADERS)
+        m = re.search(r"=\((.*)\);?$", r.text.strip(), re.S)
+        if not m:
+            m = re.search(r"=\((.*)\)", r.text, re.S)
+        if not m:
+            return 0
+        rows = json.loads(m.group(1))
+        if not isinstance(rows, list) or not rows:
+            return 0
+        rows = rows[-days:]
+        closes = [(row.get("date"), float(row["close"])) for row in rows
+                  if row.get("close") and _safe_float(row["close"])]
+        if not closes:
+            return 0
+        latest_xau = closes[-1][1]
+        anchor = fetch_sina_price() or latest_xau
+        ratio = anchor / latest_xau if latest_xau else 1.0
+
+        existing = {row[0].date() for row in db.query(models.PriceHistory.created_at).all()}
+        added = 0
+        for date_str, close in closes:
+            try:
+                dt = datetime.strptime(date_str, "%Y-%m-%d")
+            except (ValueError, TypeError):
+                continue
+            if dt.date() in existing:
+                continue
+            db.add(models.PriceHistory(
+                price=round(close * ratio, 2), source="xau_backfill", created_at=dt,
+            ))
+            added += 1
+        if added:
+            db.commit()
+        return added
+    except Exception as e:
+        print(f"[backfill] error: {e}")
+        return 0
+
+
+def _safe_float(v) -> float | None:
+    try:
+        return float(v)
+    except (ValueError, TypeError):
+        return None
 
 
 def get_today_open(db: Session) -> float:
