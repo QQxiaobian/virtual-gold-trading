@@ -190,6 +190,64 @@ def refund(db: Session, tx_id: int) -> models.Transaction:
     return rtx
 
 
+def recharge_by_admin(db: Session, user_id: int, amount: float, note: str = "") -> models.Transaction:
+    """管理员后台为用户充值（不受用户充值开关限制）。"""
+    return recharge(db, user_id, amount, note or "管理员后台充值")
+
+
+def undo_recharge(db: Session, tx_id: int) -> models.Transaction:
+    """管理员撤销一笔充值：扣回资金、标记原流水、生成冲正流水。"""
+    tx = db.query(models.Transaction).filter(models.Transaction.id == tx_id).first()
+    if not tx:
+        raise ValueError("充值记录不存在")
+    if tx.type != "recharge":
+        raise ValueError("仅可撤销充值交易")
+    if tx.refunded:
+        raise ValueError("该充值已撤销，不可重复操作")
+    acc = _get_or_create_account(db, tx.user_id)
+    # 允许扣成负数（若用户已花掉），保证账目严格对冲
+    acc.balance = round(acc.balance - tx.amount, 2)
+    tx.refunded = True
+    rtx = models.Transaction(
+        user_id=tx.user_id, type="adjust", amount=-tx.amount, grams=0,
+        price=0, fee=0, fee_desc="", balance_after=acc.balance,
+        note=f"撤销充值 #{tx_id}：扣回 {tx.amount:.2f} 元", created_at=datetime.now(),
+    )
+    db.add(rtx)
+    db.commit()
+    db.refresh(rtx)
+    return rtx
+
+
+def reset_balance(db: Session, user_id: int, amount: float, note: str = "") -> dict:
+    """管理员重置账户可用资金到指定金额，差额留痕。"""
+    if amount < 0:
+        raise ValueError("重置金额不能为负")
+    acc = _get_or_create_account(db, user_id)
+    diff = round(amount - acc.balance, 2)
+    acc.balance = round(amount, 2)
+    if abs(diff) > 1e-9:
+        tx = models.Transaction(
+            user_id=user_id, type="adjust", amount=diff, grams=0,
+            price=0, fee=0, fee_desc="", balance_after=acc.balance,
+            note=note or f"管理员重置余额至 {amount:.2f} 元", created_at=datetime.now(),
+        )
+        db.add(tx)
+    db.commit()
+    return {"user_id": user_id, "balance": acc.balance, "delta": diff}
+
+
+def reset_fee_records(db: Session) -> dict:
+    """清空手续费记录：将所有流水的 fee 与 fee_desc 归零（保留流水本身）。"""
+    rows = db.query(models.Transaction).filter(models.Transaction.fee != 0).all()
+    count = len(rows)
+    for r in rows:
+        r.fee = 0.0
+        r.fee_desc = ""
+    db.commit()
+    return {"cleared": count}
+
+
 def get_portfolio(db: Session, user_id: int, current_price: float) -> dict:
     """计算账户总览与各项收益。"""
     acc = _get_or_create_account(db, user_id)
