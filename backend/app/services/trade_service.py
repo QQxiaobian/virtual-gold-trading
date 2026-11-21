@@ -139,6 +139,57 @@ def sell(db: Session, user_id: int, grams: float, price: float | None = None) ->
     return tx
 
 
+def refund(db: Session, tx_id: int) -> models.Transaction:
+    """管理员撤销一笔 buy/sell 交易并回滚其全部影响，生成一笔 refund 流水。
+
+    回滚规则（tx 为原交易）：
+    - 撤销买入：余额退还 (成交额+手续费)= -tx.amount；持仓 -grams；成本 -(成交额+手续费)。
+    - 撤销卖出：余额扣回 净到账= tx.amount；持仓 +|grams|；成本 +(tx.amount - realized)；已实现 -realized。
+    """
+    tx = db.query(models.Transaction).filter(models.Transaction.id == tx_id).first()
+    if not tx:
+        raise ValueError("交易记录不存在")
+    if tx.type not in ("buy", "sell"):
+        raise ValueError("仅可撤销买入或卖出交易")
+    if tx.refunded:
+        raise ValueError("该交易已退款，不可重复撤销")
+
+    acc = _get_or_create_account(db, tx.user_id)
+    h = _get_or_create_holding(db, tx.user_id)
+
+    if tx.type == "buy":
+        back = round(-tx.amount, 2)          # 退还本金+手续费
+        acc.balance = round(acc.balance + back, 2)
+        h.grams = round(max(0.0, h.grams - tx.grams), 6)
+        h.cost_amount = round(max(0.0, h.cost_amount - back), 2)
+        refund_amount = back
+        note = f"撤销买入 #{tx_id}：退还 {back:.2f} 元，扣回 {tx.grams:.4f} 克"
+    else:  # sell
+        take_back = round(tx.amount, 2)      # 扣回原净到账
+        if acc.balance < take_back:
+            raise ValueError(f"退款失败：当前余额 {acc.balance:.2f} 元不足以扣回 {take_back:.2f} 元")
+        sell_cost = round(tx.amount - tx.realized_pnl, 2)  # 原卖出成本（含买入手续费）
+        acc.balance = round(acc.balance - take_back, 2)
+        h.grams = round(h.grams + abs(tx.grams), 6)
+        h.cost_amount = round(h.cost_amount + sell_cost, 2)
+        h.realized_pnl = round(h.realized_pnl - tx.realized_pnl, 2)
+        refund_amount = -take_back
+        note = f"撤销卖出 #{tx_id}：扣回 {take_back:.2f} 元，返还 {abs(tx.grams):.4f} 克"
+
+    # 原交易标记已退款
+    tx.refunded = True
+    # 生成退款流水（type=refund，不计入买卖/手续费统计）
+    rtx = models.Transaction(
+        user_id=tx.user_id, type="refund", amount=refund_amount, grams=0,
+        price=0, fee=0, fee_desc="", balance_after=acc.balance,
+        note=note, created_at=datetime.now(),
+    )
+    db.add(rtx)
+    db.commit()
+    db.refresh(rtx)
+    return rtx
+
+
 def get_portfolio(db: Session, user_id: int, current_price: float) -> dict:
     """计算账户总览与各项收益。"""
     acc = _get_or_create_account(db, user_id)
