@@ -11,14 +11,19 @@ if (flutterRoot == null) {
     throw new GradleException("Flutter SDK not found. Define location with flutter.sdk in the local.properties file.")
 }
 
+// 版本号优先取项目根目录 VERSION 文件（本地与 CI 自动同步），local.properties 可覆盖
+def versionFile = new File(rootProject.projectDir.parentFile.parentFile, 'VERSION')
+def versionNameFromRoot = versionFile.exists() ? versionFile.text.trim() : null
+
 def flutterVersionCode = localProperties.getProperty('flutter.versionCode')
 if (flutterVersionCode == null) {
-    flutterVersionCode = '1'
+    // 由 x.y.z 生成递增整数版本码，如 1.1.0 -> 10100
+    flutterVersionCode = versionNameFromRoot ? versionNameFromRoot.tokenize('.').collect { it.padLeft(2, '0') }.join('').toInteger().toString() : '1'
 }
 
 def flutterVersionName = localProperties.getProperty('flutter.versionName')
 if (flutterVersionName == null) {
-    flutterVersionName = '1.0'
+    flutterVersionName = versionNameFromRoot ?: '1.0.0'
 }
 
 apply plugin: 'com.android.application'
