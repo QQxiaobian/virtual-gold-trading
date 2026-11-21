@@ -15,6 +15,15 @@ class _LoginScreenState extends State<LoginScreen> {
   final _nick = TextEditingController();
   bool _loading = false;
   bool _registerMode = false;
+  bool _registerAllowed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Api.registerEnabled().then((d) {
+      if (mounted) setState(() => _registerAllowed = d['enabled'] == true);
+    }).catchError((_) {});
+  }
 
   Future<void> _submit() async {
     if (_user.text.trim().isEmpty || _pass.text.isEmpty) {
@@ -121,10 +130,16 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: _loading ? const CircularProgressIndicator(color: Colors.white) : Text(_registerMode ? '注册并登录' : '登录', style: const TextStyle(fontSize: 16, color: Colors.white)),
                         ),
                       ),
-                      TextButton(
-                        onPressed: () => setState(() => _registerMode = !_registerMode),
-                        child: Text(_registerMode ? '已有账号？去登录' : '没有账号？去注册'),
-                      ),
+                      if (_registerAllowed)
+                        TextButton(
+                          onPressed: () => setState(() => _registerMode = !_registerMode),
+                          child: Text(_registerMode ? '已有账号？去登录' : '没有账号？去注册'),
+                        )
+                      else if (_registerMode)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 8),
+                          child: Text('管理员未开放注册', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                        ),
                     ],
                   ),
                 ),
