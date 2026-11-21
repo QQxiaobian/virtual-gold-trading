@@ -69,6 +69,9 @@ class TransactionOut(BaseModel):
 # ---------- 行情 ----------
 class PriceOut(BaseModel):
     price: float
+    buy_price: float = 0.0
+    sell_price: float = 0.0
+    spread: float = 0.0
     source: str
     updated_at: Optional[datetime]
 
@@ -109,6 +112,10 @@ class ConfigUpdate(BaseModel):
     value: str
 
 
+class RegisterEnabledOut(BaseModel):
+    enabled: bool
+
+
 class FeeConfigOut(BaseModel):
     fee_mode: str
     buy_fee_rate: float
@@ -117,3 +124,5 @@ class FeeConfigOut(BaseModel):
     sell_fee_per_gram: float
     min_fee: float
     allow_user_recharge: bool = False
+    allow_register: bool = False
+    buy_sell_spread: float = 0.0006
