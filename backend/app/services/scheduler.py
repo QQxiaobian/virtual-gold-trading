@@ -4,6 +4,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy.orm import Session
 from ..database import SessionLocal
 from ..config import settings
+from .. import models
 from . import price_service, config_service
 
 _scheduler: BackgroundScheduler | None = None
@@ -19,6 +20,20 @@ def _job():
         db.close()
 
 
+def _backfill_job():
+    """历史数据不足时，从新浪 XAU 日K 回填历史走势（仅首次）。"""
+    db: Session = SessionLocal()
+    try:
+        count = db.query(models.PriceHistory).count()
+        if count < 50:
+            added = price_service.backfill_history(db)
+            print(f"[backfill] 已回填历史价格 {added} 条")
+    except Exception as e:
+        print(f"[backfill] error: {e}")
+    finally:
+        db.close()
+
+
 def start_scheduler():
     global _scheduler
     if _scheduler is not None:
@@ -29,6 +44,8 @@ def start_scheduler():
     _scheduler.start()
     # 启动即抓一次
     _job()
+    # 回填历史走势（新部署时数据库为空，fill 出过去一年的走势）
+    _backfill_job()
     print(f"[scheduler] 金价抓取已启动，间隔 {settings.PRICE_FETCH_INTERVAL_SECONDS}s")
 
 
