@@ -79,6 +79,14 @@ class _FeeTabState extends State<_FeeTab> {
         ],
         _numField('单笔最低手续费（元）', c.minFee, (v) => c.minFee = v),
       ])),
+      GoldCard(child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('允许用户自助充值', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF4A3626))),
+          const SizedBox(height: 4),
+          const Text('关闭后仅管理员可在后台为用户充值', style: TextStyle(fontSize: 11, color: Colors.grey)),
+        ])),
+        Switch(value: c.allowUserRecharge, activeColor: const Color(0xFFE8A33D), onChanged: (v) => setState(() => c.allowUserRecharge = v)),
+      ])),
       Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), child: ElevatedButton(onPressed: _save, style: ElevatedButton.styleFrom(primary: const Color(0xFFE8A33D), padding: const EdgeInsets.symmetric(vertical: 14)), child: const Text('保存费率', style: TextStyle(color: Colors.white, fontSize: 16)))),
       const Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('提示：切换计费方式后，参数会按新方式解释并保存。', style: TextStyle(fontSize: 11, color: Colors.grey))),
     ]);
@@ -198,14 +206,34 @@ class _FlowTabState extends State<_FlowTab> {
     try { final d = await Api.adminTransactions(); if (mounted) setState(() => _txs = (d as List).map((e) => Tx.fromJson(e)).toList()); }
     on ApiError catch (e) { if (mounted) showError(context, e.message); }
   }
+  Future<void> _doRefund(Tx t) async {
+    final ok = await confirmDialog(context, '确认退款',
+      '将撤销这笔${t.typeLabel}（#${t.id}），回滚资金与持仓，且不可恢复。确定继续吗？');
+    if (!ok) return;
+    try {
+      await Api.adminRefund(t.id);
+      if (!mounted) return;
+      showOk(context, '退款成功');
+      _load();
+    } on ApiError catch (e) {
+      if (mounted) showError(context, e.message);
+    }
+  }
+
   Widget build(BuildContext context) => ListView(padding: const EdgeInsets.all(16), children: [
-    ..._txs.map((t) => GoldCard(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('${t.typeLabel} · UID${t.id}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF4A3626))),
-        Text('${t.note}', style: TextStyle(fontSize: 11, color: Colors.grey[600]), maxLines: 1, overflow: TextOverflow.ellipsis),
-        if (t.fee > 0) Text('手续费 ${t.fee.toStringAsFixed(2)}', style: const TextStyle(fontSize: 11, color: Color(0xFFB5791B))),
-      ])),
-      Text('${t.amount >= 0 ? "+" : ""}${t.amount.toStringAsFixed(2)}', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: t.amount >= 0 ? const Color(0xFFE23E3E) : const Color(0xFF1FA463))),
-    ]))),
+    ..._txs.map((t) {
+      final canRefund = (t.type == 'buy' || t.type == 'sell') && !t.refunded;
+      return GoldCard(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('${t.typeLabel} · #${t.id}${t.refunded ? "（已退款）" : ""}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF4A3626))),
+          Text('${t.note}', style: TextStyle(fontSize: 11, color: Colors.grey[600]), maxLines: 1, overflow: TextOverflow.ellipsis),
+          if (t.fee > 0) Text('手续费 ${t.fee.toStringAsFixed(2)}', style: const TextStyle(fontSize: 11, color: Color(0xFFB5791B))),
+        ])),
+        Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+          Text('${t.amount >= 0 ? "+" : ""}${t.amount.toStringAsFixed(2)}', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: t.amount >= 0 ? const Color(0xFFE23E3E) : const Color(0xFF1FA463))),
+          if (canRefund) TextButton(onPressed: () => _doRefund(t), style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), minimumSize: Size.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap), child: const Text('退款', style: TextStyle(fontSize: 11, color: Color(0xFFC0392B)))),
+        ]),
+      ]));
+    }),
   ]);
 }
