@@ -38,6 +38,34 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  void _setServer() {
+    final ctrl = TextEditingController(text: Api.baseUrl);
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      title: const Text('服务器地址'),
+      content: Column(mainAxisSize: MainAxisSize.min, children: [
+        const Text('填写 NAS 上后端地址，含 http:// 与端口', style: TextStyle(fontSize: 12, color: Colors.grey)),
+        const SizedBox(height: 10),
+        TextField(controller: ctrl, autofocus: true, keyboardType: TextInputType.url,
+          decoration: const InputDecoration(labelText: '如 http://192.168.1.12:8100', border: OutlineInputBorder())),
+      ]),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+        ElevatedButton(onPressed: () async {
+          final url = ctrl.text.trim();
+          if (url.isEmpty || !url.startsWith('http')) {
+            showError(context, '地址需以 http:// 或 https:// 开头');
+            return;
+          }
+          await Api.setBaseUrl(url);
+          if (!mounted) return;
+          Navigator.pop(ctx);
+          setState(() {});
+          showOk(context, '服务器地址已保存');
+        }, child: const Text('保存')),
+      ],
+    ));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -62,6 +90,21 @@ class _LoginScreenState extends State<LoginScreen> {
                   padding: const EdgeInsets.all(20),
                   child: Column(
                     children: [
+                      GestureDetector(
+                        onTap: _setServer,
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(color: const Color(0xFFFDF6E9), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFF0D9A8))),
+                          child: Row(children: [
+                            const Icon(Icons.dns, size: 16, color: Color(0xFFB5791B)),
+                            const SizedBox(width: 8),
+                            Expanded(child: Text('服务器：${Api.baseUrl}', style: const TextStyle(fontSize: 12, color: Color(0xFF8A6D3B)), overflow: TextOverflow.ellipsis)),
+                            const Icon(Icons.edit, size: 14, color: Color(0xFFB5791B)),
+                          ]),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
                       TextField(controller: _user, decoration: const InputDecoration(labelText: '用户名', prefixIcon: Icon(Icons.person), border: OutlineInputBorder())),
                       const SizedBox(height: 14),
                       TextField(controller: _pass, obscureText: true, decoration: const InputDecoration(labelText: '密码', prefixIcon: Icon(Icons.lock), border: OutlineInputBorder())),
@@ -86,7 +129,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                Text('请先在右上角设置服务器地址为 NAS 地址', style: TextStyle(color: Colors.grey[400], fontSize: 11)),
+                Text('点击上方服务器地址可修改为你的 NAS 地址', style: TextStyle(color: Colors.grey[400], fontSize: 11)),
               ],
             ),
           ),
