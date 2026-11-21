@@ -39,18 +39,20 @@ class Tx {
   final int id;
   final String type, feeDesc, note, createdAt;
   final double amount, grams, price, fee, balanceAfter, realizedPnl;
+  final bool refunded;
   Tx({
     required this.id, required this.type, required this.amount, required this.grams,
     required this.price, required this.fee, required this.feeDesc, required this.balanceAfter,
-    required this.realizedPnl, required this.note, required this.createdAt,
+    required this.realizedPnl, required this.note, required this.createdAt, this.refunded = false,
   });
   factory Tx.fromJson(Map<String, dynamic> j) => Tx(
         id: j['id'] ?? 0, type: j['type'] ?? '', amount: Portfolio._d(j['amount']),
         grams: Portfolio._d(j['grams']), price: Portfolio._d(j['price']), fee: Portfolio._d(j['fee']),
         feeDesc: j['fee_desc'] ?? '', balanceAfter: Portfolio._d(j['balance_after']),
         realizedPnl: Portfolio._d(j['realized_pnl']), note: j['note'] ?? '', createdAt: j['created_at'] ?? '',
+        refunded: j['refunded'] ?? false,
       );
-  String get typeLabel => {'recharge': '充值', 'buy': '买入', 'sell': '卖出', 'adjust': '调整'}[type] ?? type;
+  String get typeLabel => {'recharge': '充值', 'buy': '买入', 'sell': '卖出', 'adjust': '调整', 'refund': '退款'}[type] ?? type;
 }
 
 class PricePoint {
@@ -66,19 +68,23 @@ class PricePoint {
 class FeeConfig {
   String feeMode;
   double buyFeeRate, sellFeeRate, buyFeePerGram, sellFeePerGram, minFee;
+  bool allowUserRecharge;
   FeeConfig({
     required this.feeMode, required this.buyFeeRate, required this.sellFeeRate,
     required this.buyFeePerGram, required this.sellFeePerGram, required this.minFee,
+    this.allowUserRecharge = false,
   });
   factory FeeConfig.fromJson(Map<String, dynamic> j) => FeeConfig(
         feeMode: j['fee_mode'] ?? 'percent', buyFeeRate: Portfolio._d(j['buy_fee_rate']),
         sellFeeRate: Portfolio._d(j['sell_fee_rate']), buyFeePerGram: Portfolio._d(j['buy_fee_per_gram']),
         sellFeePerGram: Portfolio._d(j['sell_fee_per_gram']), minFee: Portfolio._d(j['min_fee']),
+        allowUserRecharge: j['allow_user_recharge'] == true || j['allow_user_recharge'] == '1' || j['allow_user_recharge'] == 'true',
       );
   Map<String, dynamic> toJson() => {
         'fee_mode': feeMode,
         'buy_fee_rate': '$buyFeeRate', 'sell_fee_rate': '$sellFeeRate',
         'buy_fee_per_gram': '$buyFeePerGram', 'sell_fee_per_gram': '$sellFeePerGram',
         'min_fee': '$minFee',
+        'allow_user_recharge': allowUserRecharge ? '1' : '0',
       };
 }
