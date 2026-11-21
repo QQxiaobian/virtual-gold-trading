@@ -54,7 +54,7 @@ flutter build apk --release
 **APK 产物**：`app/build/app/outputs/flutter-apk/app-release.apk`
 **Web 产物**：`app/build/web/`（已构建好，可直接部署到 NAS 静态服务器）
 
-> **现成 APK**：每个版本的 Release 页面都附带已编译好的 `虚拟黄金交易-vX.Y.Z.apk`，可直接下载安装，无需自己编译。
+> **现成 APK**：每个版本的 Release 页面都附带已编译好的 `gold-trading-vX.Y.Z.apk`，可直接下载安装，无需自己编译。
 >
 > **自行编译**（可选）：需要 Android SDK。在你的电脑或 NAS 上安装 Android Studio（首次启动会自动装 SDK），或安装命令行工具：
 > `sdkmanager "platform-tools" "platforms;android-31" "build-tools;31.0.0"`，
