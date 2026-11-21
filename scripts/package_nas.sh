@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# 打包 NAS 部署包：仅包含 Docker 部署后端所需文件，排除源码之外的构建产物、虚拟环境、数据库、git。
+# 打包 NAS 部署包：仅包含 Docker 部署所需文件，排除虚拟环境、数据库、git。
+# 单容器方案：后端镜像内已包含 Flutter Web 静态文件，无需独立 nginx 容器。
 # 用法：bash scripts/package_nas.sh [输出目录]
-# 产物：virtual-gold-trading-nas-v<VERSION>.tar.gz
 set -e
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -12,53 +12,56 @@ NAME="virtual-gold-trading-nas-v${VERSION}"
 TMP="$(mktemp -d)"
 PKG="$TMP/$NAME"
 
-mkdir -p "$PKG/backend" "$OUTDIR"
+mkdir -p "$PKG/backend" "$PKG/app/build" "$OUTDIR"
 
 # 后端运行所需（排除 .venv / data / __pycache__）
 cp -r backend/app "$PKG/backend/"
 cp backend/Dockerfile backend/requirements.txt backend/.env.example "$PKG/backend/"
+# VERSION 放在包根：Dockerfile 中 COPY VERSION 使用项目根作为上下文
+cp VERSION "$PKG/VERSION"
 find "$PKG/backend" -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
 
-# Web 前端（Flutter Web 构建产物 + nginx 反代配置 + 构建镜像用 Dockerfile）
-mkdir -p "$PKG/web" "$PKG/app/build"
+# Web 前端构建产物（后端 Dockerfile 会 COPY app/build/web/ 进镜像）
 cp -r app/build/web "$PKG/app/build/web"
-cp web/nginx.conf "$PKG/web/nginx.conf"
-cp web/Dockerfile "$PKG/web/Dockerfile"
 
-# Docker 与配置、文档
+# Docker 与文档
 cp docker-compose.yml .env.example README.md CHANGELOG.md VERSION LICENSE "$PKG/"
 
-# 附一份简洁的 NAS 部署说明
+# 简洁的 NAS 部署说明
 cat > "$PKG/部署说明.txt" << EOF
 虚拟黄金交易系统 NAS 部署包 v${VERSION}
 ============================================
 
-一、快速部署
+一、快速部署（单容器，最简单）
   1. 把本目录整个上传到 NAS 的某个文件夹（如 /docker/gold）
   2. cd 进入该目录
   3. cp .env.example .env  然后编辑 .env，务必修改 SECRET_KEY 和管理员密码
   4. docker compose up -d --build
   5. 验证：
-     - 后端 API：http://<NAS_IP>:8100/docs
      - 网页端：  http://<NAS_IP>:8101
+     - 后端 API：http://<NAS_IP>:8100/docs
 
-二、默认端口
-  - 后端 API：8100（docker-compose 中 "8100:8000"）
-  - 网页 Web：8101（docker-compose 中 "8101:80"）
-  如需修改，编辑 docker-compose.yml 的 ports 映射
+二、重要：删除旧的双容器（如之前部署过 v1.1.4 及更早）
+  Web 已改为由后端直接托管，不再需要 gold-web 容器。
+  部署前请在 Docker 面板删除旧的 gold-web 容器和 gold-web:local 镜像，
+  否则旧的 8101 端口映射会冲突。本包只需一个 gold-backend 容器。
 
-三、数据持久化与备份
-  数据库在 backend/data/ 目录，定期备份该目录即可
+三、端口说明
+  - 8100：后端 API + APP 访问（docker-compose 中 "8100:8000"）
+  - 8101：Web 页面（同一后端服务，"8101:8000"）
+  两个端口指向同一个容器，改端口请编辑 docker-compose.yml 的 ports。
 
-四、客户端
-  - 网页端：浏览器打开 http://<NAS_IP>:8101（无需配置，Web 已内置反代 /api 到后端）
-  - Android：安装同版本 Release 附带的 APK，首次进入在登录页点「服务器」填 http://<NAS_IP>:8100
+四、数据持久化与备份
+  数据库在 backend/data/ 目录，定期备份该目录即可。重新部署不会丢数据。
 
-五、安全
-  默认管理员 admin / admin123，登录后请立即修改
+五、客户端
+  - 网页端：浏览器打开 http://<NAS_IP>:8101
+  - Android：安装同版本 Release 附带的 APK，登录页点「服务器」填 http://<NAS_IP>:8100
+
+六、安全
+  默认管理员 admin / admin123，登录后请立即修改。
 EOF
 
-# 打包（gzip）
 tar -czf "$OUTDIR/${NAME}.tar.gz" -C "$TMP" "$NAME"
 rm -rf "$TMP"
 
