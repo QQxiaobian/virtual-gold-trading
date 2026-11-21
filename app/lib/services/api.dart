@@ -9,7 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class Api {
   static String baseUrl = kIsWeb ? "" : "http://192.168.1.12:8100";
   static String? _token;
-  static const String version = "1.1.3";
+  static const String version = "1.1.4";
 
   static Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
@@ -101,6 +101,7 @@ class Api {
   static Future<dynamic> portfolio() => _req('GET', '/api/trade/portfolio');
   static Future<dynamic> buy(double grams) => _req('POST', '/api/trade/buy', body: {'grams': grams});
   static Future<dynamic> sell(double grams) => _req('POST', '/api/trade/sell', body: {'grams': grams});
+  static Future<dynamic> rechargeEnabled() => _req('GET', '/api/trade/recharge-enabled');
   static Future<dynamic> recharge(double amount, String note) =>
       _req('POST', '/api/trade/recharge', body: {'amount': amount, 'note': note});
   static Future<dynamic> transactions({int skip = 0, int limit = 100}) =>
@@ -120,6 +121,8 @@ class Api {
   static Future<dynamic> adminStats({int days = 30}) => _req('GET', '/api/admin/statistics?days=$days');
   static Future<dynamic> adminTransactions({int limit = 200}) =>
       _req('GET', '/api/admin/transactions?limit=$limit');
+  static Future<dynamic> adminRefund(int txId) =>
+      _req('POST', '/api/admin/refund/$txId');
 }
 
 class ApiError implements Exception {
