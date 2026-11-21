@@ -9,7 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class Api {
   static String baseUrl = kIsWeb ? "" : "http://192.168.1.12:8100";
   static String? _token;
-  static const String version = "1.1.4";
+  static const String version = "1.2.0";
 
   static Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
@@ -90,6 +90,7 @@ class Api {
   static Future<dynamic> register(String u, String p, String nick) => _req('POST', '/api/auth/register',
       body: {'username': u, 'password': p, 'nickname': nick}, auth: false);
   static Future<dynamic> me() => _req('GET', '/api/auth/me');
+  static Future<dynamic> registerEnabled() => _req('GET', '/api/auth/register-enabled', auth: false);
 
   // 行情
   static Future<dynamic> price() => _req('GET', '/api/market/price');
@@ -123,6 +124,21 @@ class Api {
       _req('GET', '/api/admin/transactions?limit=$limit');
   static Future<dynamic> adminRefund(int txId) =>
       _req('POST', '/api/admin/refund/$txId');
+  static Future<dynamic> adminUserDetail(int uid) => _req('GET', '/api/admin/users/$uid/detail');
+  static Future<dynamic> adminDeleteUser(int uid) => _req('DELETE', '/api/admin/users/$uid');
+  static Future<dynamic> adminResetPassword(int uid, String password) =>
+      _req('PUT', '/api/admin/users/$uid/password', body: {'new_password': password});
+  static Future<dynamic> adminResetBalance(int uid, double amount, String note) =>
+      _req('POST', '/api/admin/users/$uid/reset-balance', body: {'amount': amount, 'note': note});
+  static Future<dynamic> adminUndoRecharge(int txId) => _req('POST', '/api/admin/undo-recharge/$txId');
+  static Future<dynamic> adminResetFeeRecords() => _req('POST', '/api/admin/reset-fee-records');
+  static Uri exportUrl({int? uid, int? days}) {
+    final q = <String>[];
+    if (_token != null) q.add('token=${Uri.encodeComponent(_token!)}');
+    if (uid != null) q.add('user_id=$uid');
+    if (days != null) q.add('days=$days');
+    return Uri.parse('$baseUrl/api/admin/export-transactions${q.isNotEmpty ? "?${q.join("&")}" : ""}');
+  }
 }
 
 class ApiError implements Exception {
