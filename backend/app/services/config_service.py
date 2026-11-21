@@ -13,12 +13,40 @@ DEFAULT_CONFIGS = {
     "min_fee": (str(settings.DEFAULT_MIN_FEE), "单笔最低手续费（元）"),
     "price_interval": (str(settings.PRICE_FETCH_INTERVAL_SECONDS), "金价抓取间隔（秒）"),
     "allow_user_recharge": ("1" if settings.DEFAULT_ALLOW_USER_RECHARGE else "0", "是否允许用户自助充值：1=允许 / 0=关闭"),
+    "allow_register": ("1" if settings.DEFAULT_ALLOW_REGISTER else "0", "是否开放用户自助注册：1=允许 / 0=关闭"),
+    "buy_sell_spread": ("0.0006", "实时买卖价点差比例（如 0.0006=万分之六）"),
 }
+
+
+def _truthy(value: str) -> bool:
+    return str(value).strip().lower() in ("1", "true", "yes", "on")
 
 
 def recharge_enabled(db: Session) -> bool:
     """用户自助充值开关是否开启。"""
-    return get_config(db, "allow_user_recharge", "0").strip() in ("1", "true", "True", "yes")
+    return _truthy(get_config(db, "allow_user_recharge", "0"))
+
+
+def register_enabled(db: Session) -> bool:
+    """用户自助注册开关是否开启。"""
+    return _truthy(get_config(db, "allow_register", "0"))
+
+
+def get_value(db: Session, key: str, default: str = "") -> str:
+    """通用配置读取（别名，供其它服务调用）。"""
+    return get_config(db, key, default)
+
+
+def set_value(db: Session, key: str, value: str, description: str | None = None):
+    """通用配置写入：存在则更新，不存在则创建。"""
+    row = db.query(models.SystemConfig).filter(models.SystemConfig.key == key).first()
+    if row:
+        row.value = str(value)
+        if description is not None:
+            row.description = description
+    else:
+        db.add(models.SystemConfig(key=key, value=str(value), description=description or ""))
+    db.commit()
 
 
 def init_configs(db: Session):
@@ -50,6 +78,8 @@ def get_fee_config(db: Session) -> dict:
         "sell_fee_per_gram": get_float(db, "sell_fee_per_gram", settings.DEFAULT_SELL_FEE_PER_GRAM),
         "min_fee": get_float(db, "min_fee", settings.DEFAULT_MIN_FEE),
         "allow_user_recharge": recharge_enabled(db),
+        "allow_register": register_enabled(db),
+        "buy_sell_spread": get_float(db, "buy_sell_spread", 0.0006),
     }
 
 
