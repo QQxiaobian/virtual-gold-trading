@@ -6,7 +6,7 @@ services:
     container_name: gold-backend
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "8100:8000"   # 宿主机 8100 → 容器 8000（NAS 访问端口）
     volumes:
       - ./backend/data:/app/data          # 数据库持久化
     environment:
