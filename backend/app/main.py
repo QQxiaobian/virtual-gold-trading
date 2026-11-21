@@ -2,6 +2,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 from .config import settings
 from .database import Base, engine, SessionLocal
 from . import models
@@ -10,9 +11,19 @@ from .services import config_service, scheduler
 from .routers import auth, market, trade, admin
 
 
+def _migrate():
+    """轻量迁移：为已有 SQLite 库补齐新增列（避免旧库缺列报错）。"""
+    with engine.connect() as conn:
+        cols = {row[1] for row in conn.execute(text("PRAGMA table_info(transactions)")).fetchall()}
+        if "refunded" not in cols:
+            conn.execute(text("ALTER TABLE transactions ADD COLUMN refunded BOOLEAN NOT NULL DEFAULT 0"))
+            conn.commit()
+
+
 def init_db():
-    """建表 + 初始化配置 + 创建初始管理员。"""
+    """建表 + 迁移 + 初始化配置 + 创建初始管理员。"""
     Base.metadata.create_all(bind=engine)
+    _migrate()
     db = SessionLocal()
     try:
         config_service.init_configs(db)
