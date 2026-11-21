@@ -9,7 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class Api {
   static String baseUrl = kIsWeb ? "" : "http://192.168.1.12:8100";
   static String? _token;
-  static const String version = "1.1.2";
+  static const String version = "1.1.3";
 
   static Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
@@ -66,13 +66,15 @@ class Api {
     if (resp.statusCode >= 400) {
       throw ApiError(_msg(resp) ?? '请求失败(${resp.statusCode})');
     }
-    if (resp.body.isEmpty) return null;
-    return jsonDecode(resp.body);
+    if (resp.bodyBytes.isEmpty) return null;
+    // 必须按 UTF-8 解码原始字节：Dart http 对无 charset 的 JSON 默认用 Latin-1，
+    // 会把后端返回的中文解成 â®¢å£® 之类的乱码。
+    return jsonDecode(utf8.decode(resp.bodyBytes));
   }
 
   static String? _msg(http.Response resp) {
     try {
-      final d = jsonDecode(resp.body);
+      final d = jsonDecode(utf8.decode(resp.bodyBytes));
       return d['detail']?.toString();
     } catch (_) {
       return null;
@@ -95,6 +97,7 @@ class Api {
   static Future<dynamic> sources() => _req('GET', '/api/market/sources');
 
   // 交易
+  static Future<dynamic> feeConfigPublic() => _req('GET', '/api/trade/fee-config');
   static Future<dynamic> portfolio() => _req('GET', '/api/trade/portfolio');
   static Future<dynamic> buy(double grams) => _req('POST', '/api/trade/buy', body: {'grams': grams});
   static Future<dynamic> sell(double grams) => _req('POST', '/api/trade/sell', body: {'grams': grams});
