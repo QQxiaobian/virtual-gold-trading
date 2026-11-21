@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     DEFAULT_SELL_FEE_PER_GRAM: float = 0.5  # 卖出每克固定 0.5 元
     DEFAULT_MIN_FEE: float = 0.0
 
+    # 用户充值开关：默认关闭，需管理员在后台开启后普通用户才能自助充值
+    DEFAULT_ALLOW_USER_RECHARGE: bool = False
+
     # 初始管理员（首次启动自动创建，请尽快改密码）
     INIT_ADMIN_USERNAME: str = "admin"
     INIT_ADMIN_PASSWORD: str = "admin123"
