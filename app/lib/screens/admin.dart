@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api.dart';
+import '../services/url_helper.dart';
 import '../models/data.dart';
 import '../widgets/common.dart';
 
@@ -79,15 +80,31 @@ class _FeeTabState extends State<_FeeTab> {
         ],
         _numField('单笔最低手续费（元）', c.minFee, (v) => c.minFee = v),
       ])),
-      GoldCard(child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('允许用户自助充值', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF4A3626))),
-          const SizedBox(height: 4),
-          const Text('关闭后仅管理员可在后台为用户充值', style: TextStyle(fontSize: 11, color: Colors.grey)),
-        ])),
-        Switch(value: c.allowUserRecharge, activeColor: const Color(0xFFE8A33D), onChanged: (v) => setState(() => c.allowUserRecharge = v)),
+      GoldCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('行情设置', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF4A3626))),
+        const SizedBox(height: 12),
+        _numField('实时买卖价点差（比例，如 0.0006）', c.buySellSpread, (v) => c.buySellSpread = v),
       ])),
-      Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), child: ElevatedButton(onPressed: _save, style: ElevatedButton.styleFrom(primary: const Color(0xFFE8A33D), padding: const EdgeInsets.symmetric(vertical: 14)), child: const Text('保存费率', style: TextStyle(color: Colors.white, fontSize: 16)))),
+      GoldCard(child: Column(children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('允许用户自助充值', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF4A3626))),
+            const SizedBox(height: 4),
+            const Text('关闭后仅管理员可在后台为用户充值', style: TextStyle(fontSize: 11, color: Colors.grey)),
+          ])),
+          Switch(value: c.allowUserRecharge, activeColor: const Color(0xFFE8A33D), onChanged: (v) => setState(() => c.allowUserRecharge = v)),
+        ]),
+        const SizedBox(height: 12),
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('开放用户自助注册', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF4A3626))),
+            const SizedBox(height: 4),
+            const Text('开启后登录页显示「去注册」入口', style: TextStyle(fontSize: 11, color: Colors.grey)),
+          ])),
+          Switch(value: c.allowRegister, activeColor: const Color(0xFFE8A33D), onChanged: (v) => setState(() => c.allowRegister = v)),
+        ]),
+      ])),
+      Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), child: ElevatedButton(onPressed: _save, style: ElevatedButton.styleFrom(primary: const Color(0xFFE8A33D), padding: const EdgeInsets.symmetric(vertical: 14)), child: const Text('保存设置', style: TextStyle(color: Colors.white, fontSize: 16)))),
       const Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('提示：切换计费方式后，参数会按新方式解释并保存。', style: TextStyle(fontSize: 11, color: Colors.grey))),
     ]);
   }
@@ -144,20 +161,90 @@ class _UserTabState extends State<_UserTab> {
       }, child: const Text('确定')),
     ]));
   }
+  void _resetBalance(UserInfo user) {
+    final amt = TextEditingController(), note = TextEditingController();
+    showDialog(context: context, builder: (ctx) => AlertDialog(title: Text('重置余额 · ${user.nickname}'), content: Column(mainAxisSize: MainAxisSize.min, children: [
+      const Text('将可用资金直接设为指定金额（差额自动留痕）', style: TextStyle(fontSize: 12, color: Colors.grey)),
+      const SizedBox(height: 8),
+      TextField(controller: amt, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: '目标余额（元）', border: OutlineInputBorder())),
+      const SizedBox(height: 8),
+      TextField(controller: note, decoration: const InputDecoration(labelText: '备注', border: OutlineInputBorder())),
+    ]), actions: [
+      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+      ElevatedButton(onPressed: () async {
+        final v = double.tryParse(amt.text.trim());
+        if (v == null || v < 0) { showError(context, '请输入有效金额'); return; }
+        try { await Api.adminResetBalance(user.id, v, note.text.trim()); if (!mounted) return; Navigator.pop(ctx); showOk(context, '余额已重置'); }
+        on ApiError catch (e) { showError(context, e.message); }
+      }, child: const Text('确定')),
+    ]));
+  }
+  void _resetPassword(UserInfo user) {
+    final p = TextEditingController();
+    showDialog(context: context, builder: (ctx) => AlertDialog(title: Text('重置密码 · ${user.nickname}'), content: TextField(controller: p, decoration: const InputDecoration(labelText: '新密码（至少6位）', border: OutlineInputBorder())), actions: [
+      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+      ElevatedButton(onPressed: () async {
+        if (p.text.length < 6) { showError(context, '密码至少6位'); return; }
+        try { await Api.adminResetPassword(user.id, p.text); if (!mounted) return; Navigator.pop(ctx); showOk(context, '密码已重置'); }
+        on ApiError catch (e) { showError(context, e.message); }
+      }, child: const Text('确定')),
+    ]));
+  }
+  void _deleteUser(UserInfo user) async {
+    final ok = await confirmDialog(context, '删除账号', '将删除 ${user.nickname} 及其全部资金、持仓、流水数据，且不可恢复。确定继续吗？');
+    if (!ok) return;
+    try { await Api.adminDeleteUser(user.id); if (!mounted) return; showOk(context, '账号已删除'); _load(); }
+    on ApiError catch (e) { if (mounted) showError(context, e.message); }
+  }
+  void _viewDetail(UserInfo user) async {
+    showDialog(context: context, builder: (ctx) => FutureBuilder<dynamic>(
+      future: Api.adminUserDetail(user.id),
+      builder: (ctx, snap) {
+        if (snap.connectionState == ConnectionState.waiting) return const AlertDialog(title: Text('账户明细'), content: SizedBox(height: 80, child: Center(child: CircularProgressIndicator())));
+        if (snap.hasError) return AlertDialog(title: const Text('账户明细'), content: Text('${snap.error}'));
+        final d = snap.data;
+        final pf = d['portfolio'] ?? {};
+        final txs = (d['transactions'] as List? ?? []).take(20).toList();
+        return AlertDialog(
+          title: Text('账户明细 · ${user.nickname}'),
+          content: SizedBox(width: double.maxFinite, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('可用资金：${(pf['balance'] ?? 0).toStringAsFixed(2)} 元', style: const TextStyle(fontSize: 14)),
+            Text('持仓：${(pf['grams'] ?? 0).toStringAsFixed(4)} 克 · 均价 ${(pf['avg_cost'] ?? 0).toStringAsFixed(2)} 元/克', style: const TextStyle(fontSize: 13)),
+            Text('市值：${(pf['market_value'] ?? 0).toStringAsFixed(2)} 元 · 总资产 ${(pf['total_assets'] ?? 0).toStringAsFixed(2)} 元', style: const TextStyle(fontSize: 13)),
+            Text('持仓盈亏：${(pf['holding_pnl'] ?? 0).toStringAsFixed(2)} · 已实现：${(pf['realized_pnl'] ?? 0).toStringAsFixed(2)}', style: const TextStyle(fontSize: 13)),
+            const SizedBox(height: 10),
+            const Text('最近流水：', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+            ...txs.map((t) => Padding(padding: const EdgeInsets.symmetric(vertical: 2), child: Text('${Tx.fromJson(t).typeLabel} ${(t['amount'] as num).toStringAsFixed(2)} · ${t['note']}', style: const TextStyle(fontSize: 11, color: Colors.grey)))),
+          ]))),
+          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('关闭'))],
+        );
+      },
+    ));
+  }
   Widget build(BuildContext context) => ListView(padding: const EdgeInsets.all(16), children: [
-    ElevatedButton.icon(onPressed: _addUser, icon: const Icon(Icons.add), label: const Text('新建用户'), style: ElevatedButton.styleFrom(primary: const Color(0xFFE8A33D), padding: const EdgeInsets.symmetric(vertical: 12)),),
+    Row(children: [
+      Expanded(child: ElevatedButton.icon(onPressed: _addUser, icon: const Icon(Icons.add), label: const Text('新建用户'), style: ElevatedButton.styleFrom(primary: const Color(0xFFE8A33D), padding: const EdgeInsets.symmetric(vertical: 12)),)),
+    ]),
     const SizedBox(height: 10),
-    ..._users.map((u) => GoldCard(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10), child: Row(children: [
-      CircleAvatar(backgroundColor: const Color(0xFFF5D9A8), child: Text(u.nickname.isNotEmpty ? u.nickname[0] : 'U', style: const TextStyle(color: Color(0xFFB5791B)))),
-      const SizedBox(width: 12),
-      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('${u.nickname} ${u.isAdmin ? "(管理员)" : ""}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF4A3626))),
-        Text('@${u.username} · ${u.isActive ? "正常" : "已禁用"}', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-      ])),
-      IconButton(icon: const Icon(Icons.attach_money, color: Color(0xFF1FA463)), tooltip: '资金调整', onPressed: () => _adjust(u)),
-      IconButton(icon: Icon(u.isActive ? Icons.block : Icons.check_circle, color: Colors.grey), tooltip: u.isActive ? '禁用' : '启用', onPressed: () async {
-        try { await Api.adminToggleUser(u.id, !u.isActive); _load(); } on ApiError catch (e) { if (mounted) showError(context, e.message); }
-      }),
+    ..._users.map((u) => GoldCard(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        CircleAvatar(backgroundColor: const Color(0xFFF5D9A8), child: Text(u.nickname.isNotEmpty ? u.nickname[0] : 'U', style: const TextStyle(color: Color(0xFFB5791B)))),
+        const SizedBox(width: 12),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('${u.nickname} ${u.isAdmin ? "(管理员)" : ""}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF4A3626))),
+          Text('@${u.username} · ${u.isActive ? "正常" : "已禁用"}', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+        ])),
+        IconButton(icon: const Icon(Icons.visibility, color: Color(0xFFB5791B)), tooltip: '账户明细', onPressed: () => _viewDetail(u)),
+        IconButton(icon: const Icon(Icons.attach_money, color: Color(0xFF1FA463)), tooltip: '资金调整', onPressed: () => _adjust(u)),
+        IconButton(icon: Icon(u.isActive ? Icons.block : Icons.check_circle, color: Colors.grey), tooltip: u.isActive ? '禁用' : '启用', onPressed: () async {
+          try { await Api.adminToggleUser(u.id, !u.isActive); _load(); } on ApiError catch (e) { if (mounted) showError(context, e.message); }
+        }),
+      ]),
+      Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+        TextButton(onPressed: () => _resetBalance(u), child: const Text('重置余额', style: TextStyle(fontSize: 12))),
+        TextButton(onPressed: () => _resetPassword(u), child: const Text('重置密码', style: TextStyle(fontSize: 12))),
+        TextButton(onPressed: () => _deleteUser(u), child: const Text('删除', style: TextStyle(fontSize: 12, color: Color(0xFFC0392B)))),
+      ]),
     ]))),
   ]);
 }
@@ -192,6 +279,12 @@ class _StatTabState extends State<_StatTab> {
         ...userFees.map((e) => _row('${e['username']} (${e['transactions']}笔)', '${(e['fee'] as num).toStringAsFixed(2)} 元')),
         if (userFees.isEmpty) const Text('暂无数据', style: TextStyle(color: Colors.grey)),
       ])),
+      Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), child: OutlinedButton.icon(onPressed: () async {
+        final ok = await confirmDialog(context, '重置手续费记录', '将清空所有流水中的手续费金额与说明（流水本身保留），不可恢复。确定继续吗？');
+        if (!ok) return;
+        try { final r = await Api.adminResetFeeRecords(); if (!mounted) return; showOk(context, '已清空 ${r['cleared']} 条手续费记录'); _load(); }
+        on ApiError catch (e) { if (mounted) showError(context, e.message); }
+      }, icon: const Icon(Icons.delete_sweep), label: const Text('重置手续费记录'))),
     ]);
   }
   Widget _row(String k, String v) => Padding(padding: const EdgeInsets.symmetric(vertical: 6), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(k, style: const TextStyle(fontSize: 13, color: Color(0xFF6B5A45))), Text(v, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF4A3626)))]) );
@@ -220,18 +313,36 @@ class _FlowTabState extends State<_FlowTab> {
     }
   }
 
+  Future<void> _undoRecharge(Tx t) async {
+    final ok = await confirmDialog(context, '撤销充值', '将扣回这笔充值（#${t.id}）的 ${t.amount.toStringAsFixed(2)} 元，确定继续吗？');
+    if (!ok) return;
+    try {
+      await Api.adminUndoRecharge(t.id);
+      if (!mounted) return;
+      showOk(context, '充值已撤销');
+      _load();
+    } on ApiError catch (e) {
+      if (mounted) showError(context, e.message);
+    }
+  }
+
   Widget build(BuildContext context) => ListView(padding: const EdgeInsets.all(16), children: [
+    Padding(padding: const EdgeInsets.only(bottom: 10), child: SizedBox(width: double.infinity, child: OutlinedButton.icon(onPressed: () => openForDownload(Api.exportUrl(), context), icon: const Icon(Icons.file_download), label: const Text('导出全部流水 CSV')))),
     ..._txs.map((t) {
       final canRefund = (t.type == 'buy' || t.type == 'sell') && !t.refunded;
+      final canUndoRecharge = t.type == 'recharge' && !t.refunded;
       return GoldCard(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('${t.typeLabel} · #${t.id}${t.refunded ? "（已退款）" : ""}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF4A3626))),
+          Text('${t.typeLabel} · #${t.id}${t.refunded ? "（已撤销）" : ""}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF4A3626))),
           Text('${t.note}', style: TextStyle(fontSize: 11, color: Colors.grey[600]), maxLines: 1, overflow: TextOverflow.ellipsis),
           if (t.fee > 0) Text('手续费 ${t.fee.toStringAsFixed(2)}', style: const TextStyle(fontSize: 11, color: Color(0xFFB5791B))),
         ])),
         Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
           Text('${t.amount >= 0 ? "+" : ""}${t.amount.toStringAsFixed(2)}', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: t.amount >= 0 ? const Color(0xFFE23E3E) : const Color(0xFF1FA463))),
-          if (canRefund) TextButton(onPressed: () => _doRefund(t), style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), minimumSize: Size.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap), child: const Text('退款', style: TextStyle(fontSize: 11, color: Color(0xFFC0392B)))),
+          Row(mainAxisSize: MainAxisSize.min, children: [
+            if (canRefund) TextButton(onPressed: () => _doRefund(t), style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), minimumSize: Size.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap), child: const Text('退款', style: TextStyle(fontSize: 11, color: Color(0xFFC0392B)))),
+            if (canUndoRecharge) TextButton(onPressed: () => _undoRecharge(t), style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), minimumSize: Size.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap), child: const Text('撤销充值', style: TextStyle(fontSize: 11, color: Color(0xFFC0392B)))),
+          ]),
         ]),
       ]));
     }),
