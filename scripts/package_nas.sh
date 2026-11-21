@@ -19,10 +19,11 @@ cp -r backend/app "$PKG/backend/"
 cp backend/Dockerfile backend/requirements.txt backend/.env.example "$PKG/backend/"
 find "$PKG/backend" -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
 
-# Web 前端（Flutter Web 构建产物 + nginx 反代配置）
+# Web 前端（Flutter Web 构建产物 + nginx 反代配置 + 构建镜像用 Dockerfile）
 mkdir -p "$PKG/web" "$PKG/app/build"
 cp -r app/build/web "$PKG/app/build/web"
 cp web/nginx.conf "$PKG/web/nginx.conf"
+cp web/Dockerfile "$PKG/web/Dockerfile"
 
 # Docker 与配置、文档
 cp docker-compose.yml .env.example README.md CHANGELOG.md VERSION LICENSE "$PKG/"
