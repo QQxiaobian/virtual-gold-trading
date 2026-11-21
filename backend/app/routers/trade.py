@@ -44,8 +44,16 @@ def sell(payload: schemas.TradeIn, current_user: models.User = Depends(get_curre
     return schemas.TransactionOut.model_validate(tx)
 
 
+@router.get("/recharge-enabled")
+def recharge_enabled(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """查询当前是否允许用户自助充值（管理员始终为 True）。"""
+    return {"enabled": current_user.role == "admin" or config_service.recharge_enabled(db)}
+
+
 @router.post("/recharge", response_model=schemas.TransactionOut)
 def recharge(payload: schemas.RechargeIn, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if current_user.role != "admin" and not config_service.recharge_enabled(db):
+        raise HTTPException(status_code=403, detail="管理员未开放充值功能，请联系管理员")
     tx = trade_service.recharge(db, current_user.id, payload.amount, payload.note or "")
     return schemas.TransactionOut.model_validate(tx)
 
