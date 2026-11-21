@@ -1,18 +1,24 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// API 客户端。baseUrl 默认为本机，部署时改成 NAS 地址（如 http://192.168.1.10:8100）。
+/// API 客户端。
+/// - Web 端：baseUrl 留空，走相对路径 /api，由 nginx 反向代理到后端（避免 CORS 与 IP 硬编码）
+/// - APP 端：默认指向 NAS 地址，可在登录页 / "我的"页修改并持久化
 class Api {
-  static String baseUrl = "http://127.0.0.1:8100";
+  static String baseUrl = kIsWeb ? "" : "http://192.168.1.12:8100";
   static String? _token;
-  static const String version = "1.1.0";
+  static const String version = "1.1.1";
 
   static Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
     _token = prefs.getString('token');
-    final saved = prefs.getString('baseUrl');
-    if (saved != null && saved.isNotEmpty) baseUrl = saved;
+    // Web 端始终走相对路径（nginx 反代），不读取可能来自其它端的硬编码地址
+    if (!kIsWeb) {
+      final saved = prefs.getString('baseUrl');
+      if (saved != null && saved.isNotEmpty) baseUrl = saved;
+    }
   }
 
   static Future<void> setBaseUrl(String url) async {
