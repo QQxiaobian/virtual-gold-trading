@@ -9,7 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class Api {
   static String baseUrl = kIsWeb ? "" : "http://192.168.1.12:8100";
   static String? _token;
-  static const String version = "1.1.1";
+  static const String version = "1.1.2";
 
   static Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
