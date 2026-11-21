@@ -61,9 +61,22 @@ class _TradeTabState extends State<TradeTab> {
   Future<void> _submit() async {
     final g = _parsed;
     if (g == null || g <= 0) { showError(context, '请输入有效克重'); return; }
+    final est = _estimate(g);
+    final total = g * (_p?.currentPrice ?? 0);
+    final isBuy = _side == 0;
+    final ok = await confirmDialog(
+      context,
+      isBuy ? '确认买入' : '确认卖出',
+      '${isBuy ? '买入' : '卖出'} ${g.toStringAsFixed(4)} 克 @ ${(_p?.currentPrice ?? 0).toStringAsFixed(2)} 元/克\n'
+      '成交额：${total.toStringAsFixed(2)} 元\n'
+      '手续费：${est.fee.toStringAsFixed(2)} 元${est.desc.isNotEmpty ? '（${est.desc}）' : ''}\n'
+      '${isBuy ? '预计支出' : '预计到账'}：${(isBuy ? total + est.fee : total - est.fee).toStringAsFixed(2)} 元\n\n'
+      '请确认无误后再提交。',
+    );
+    if (!ok) return;
     setState(() => _busy = true);
     try {
-      final tx = _side == 0 ? await Api.buy(g) : await Api.sell(g);
+      final tx = isBuy ? await Api.buy(g) : await Api.sell(g);
       if (!mounted) return;
       final t = Tx.fromJson(tx);
       showDialog(context: context, builder: (ctx) => AlertDialog(
