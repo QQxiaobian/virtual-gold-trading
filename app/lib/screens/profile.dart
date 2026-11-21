@@ -13,6 +13,7 @@ class ProfileTab extends StatefulWidget {
 class _ProfileTabState extends State<ProfileTab> {
   UserInfo? _user;
   Portfolio? _p;
+  bool _rechargeOpen = false;
 
   @override
   void initState() {
@@ -24,10 +25,13 @@ class _ProfileTabState extends State<ProfileTab> {
     try {
       final u = await Api.me();
       final p = await Api.portfolio();
+      dynamic r;
+      try { r = await Api.rechargeEnabled(); } catch (_) { r = null; }
       if (!mounted) return;
       setState(() {
         _user = UserInfo.fromJson(u);
         _p = Portfolio.fromJson(p);
+        _rechargeOpen = r != null && r['enabled'] == true;
       });
     } on ApiError catch (e) {
       if (mounted) showError(context, e.message);
@@ -128,7 +132,7 @@ class _ProfileTabState extends State<ProfileTab> {
             GoldCard(
               padding: const EdgeInsets.symmetric(vertical: 4),
               child: Column(children: [
-                _tile(Icons.account_balance_wallet, '虚拟充值', _recharge),
+                if (_rechargeOpen) _tile(Icons.account_balance_wallet, '虚拟充值', _recharge),
                 const Divider(height: 1, indent: 56),
                 _tile(Icons.dns, '服务器设置', _setServer),
                 if (u?.isAdmin == true) ...[
