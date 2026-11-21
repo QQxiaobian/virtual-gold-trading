@@ -28,14 +28,23 @@ uvicorn app.main:app --reload --port 8000
 
 访问 http://localhost:8000/docs 查看 API 文档。首次启动自动创建管理员（默认 `admin / admin123`，请尽快修改）。
 
-### 2. 后端（NAS Docker 部署）⭐
+### 2. NAS Docker 部署（后端 + Web）⭐
+
+直接使用 Release 附带的 **NAS 部署包**（已含 Web 产物与 nginx 配置），解压后：
 
 ```bash
 cp .env.example .env      # 务必修改 SECRET_KEY 与管理员密码
 docker compose up -d --build
 ```
 
-- 服务地址：`http://<NAS_IP>:8100`（默认端口 8100，可在 `docker-compose.yml` 中修改映射）
+启动后访问：
+
+| 服务 | 地址 | 说明 |
+|---|---|---|
+| **网页端** | `http://<NAS_IP>:8101` | 浏览器直接打开，无需配置（Web 已内置 `/api` 反代到后端） |
+| 后端 API | `http://<NAS_IP>:8100/docs` | 接口文档 / APP 连接地址 |
+
+- 默认端口：Web **8101**、API **8100**，可在 `docker-compose.yml` 的 `ports` 修改
 - 数据库持久化在 `backend/data/`，记得备份该目录
 - 外网访问建议用 Tailscale/ZeroTier 或反向代理，不要直接暴露公网
 - 修改 `.env` 后需 `docker compose up -d --build` 重建
@@ -61,9 +70,12 @@ flutter build apk --release
 > 然后设置 `ANDROID_SDK_ROOT` 环境变量，再执行 `flutter build apk --release`。
 > 注意：Gradle 7.4 需配合 JDK 17（不兼容 JDK 20+）。Flutter 版本要求：本代码基于 Flutter 3.0.0 / Dart 2.17，依赖已锁定兼容版本。
 
-**修改 API 地址**（两种方式）：
-1. App 内：登录后进入「我的 → 服务器设置」，填入 NAS 地址（如 `http://192.168.1.10:8100`），保存后重新登录
-2. 代码默认：编辑 `app/lib/services/api.dart` 中的 `baseUrl`
+**APP 服务器地址**（两种入口，默认 `http://192.168.1.12:8100`）：
+1. **登录页**：卡片顶部「服务器：...」一行，点它即可修改（未登录也能设置，解决首次连接问题）
+2. **我的页**：登录后「我的 → 服务器设置」修改
+3. Web 端无需设置，自动走相对路径 `/api`
+
+修改后保存即可，APP 端地址会持久化到本机。
 
 ## 测试
 
