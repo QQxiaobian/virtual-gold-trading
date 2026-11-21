@@ -1,31 +1,25 @@
 version: "3.8"
 
+# 单容器部署：后端 FastAPI 同时提供 API 与 Flutter Web 静态站点。
+# 8100 → 后端 API（APP 使用，访问 /docs 看接口）
+# 8101 → 同一个服务的 Web 页面（浏览器访问）
+# 这样不再需要独立的 nginx 容器，避免 NAS 图形界面部署时相对路径挂载错误导致 403。
 services:
   backend:
-    build: ./backend
+    build:
+      context: .              # 项目根目录（Dockerfile 中 COPY backend/... 与 app/build/web/）
+      dockerfile: backend/Dockerfile
     container_name: gold-backend
     restart: unless-stopped
     ports:
-      - "8100:8000"   # 宿主机 8100 → 容器 8000（NAS 访问端口）
+      - "8100:8000"   # 后端 API + APP 访问端口
+      - "8101:8000"   # Web 页面端口（同一服务）
     volumes:
       - ./backend/data:/app/data          # 数据库持久化
     environment:
       - TZ=Asia/Shanghai
+      - WEB_DIR=/app/web
       - SECRET_KEY=${SECRET_KEY:-CHANGE-ME-TO-A-RANDOM-64-CHAR-STRING}
       - INIT_ADMIN_USERNAME=${INIT_ADMIN_USERNAME:-admin}
       - INIT_ADMIN_PASSWORD=${INIT_ADMIN_PASSWORD:-admin123}
       - PRICE_FETCH_INTERVAL_SECONDS=${PRICE_FETCH_INTERVAL_SECONDS:-30}
-
-  # Web 前端（Flutter Web 静态页 + nginx 反向代理 /api 到后端）
-  # 网页文件已 COPY 进镜像（web/Dockerfile），不依赖 NAS 上的相对路径挂载，避免 403
-  web:
-    build:
-      context: .
-      dockerfile: web/Dockerfile
-    image: gold-web:local
-    container_name: gold-web
-    restart: unless-stopped
-    ports:
-      - "8101:80"         # 宿主机 8101 → 容器 80（Web 访问端口）
-    depends_on:
-      - backend
