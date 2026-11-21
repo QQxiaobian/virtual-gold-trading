@@ -52,3 +52,15 @@ def get_current_admin(current_user: models.User = Depends(get_current_user)) -> 
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="需要管理员权限")
     return current_user
+
+
+def decode_token_user(token: str, db: Session) -> models.User | None:
+    """从原始 token 字符串解析用户（供文件下载等无法设置 Header 的场景使用）。"""
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
+        uid = payload.get("sub")
+        if uid is None:
+            return None
+        return db.query(models.User).filter(models.User.id == int(uid)).first()
+    except (JWTError, ValueError, TypeError):
+        return None
