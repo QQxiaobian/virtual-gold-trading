@@ -4,9 +4,15 @@ from sqlalchemy.orm import Session
 from .. import models, schemas
 from ..auth import get_current_user
 from ..database import get_db
-from ..services import trade_service, price_service
+from ..services import trade_service, price_service, config_service
 
 router = APIRouter(prefix="/api/trade", tags=["交易"])
+
+
+@router.get("/fee-config")
+def public_fee_config(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """登录用户可读的当前手续费配置（用于交易页预估），避免普通用户访问管理员接口被拒。"""
+    return config_service.get_fee_config(db)
 
 
 @router.get("/portfolio", response_model=schemas.PortfolioOut)
