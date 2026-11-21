@@ -14,6 +14,7 @@ class _TradeTabState extends State<TradeTab> {
   final _grams = TextEditingController();
   Portfolio? _p;
   FeeConfig? _fee;
+  PriceQuote? _quote;
   bool _busy = false;
 
   @override
@@ -27,10 +28,13 @@ class _TradeTabState extends State<TradeTab> {
       final p = await Api.portfolio();
       dynamic fee;
       try { fee = await Api.feeConfigPublic(); } catch (_) { fee = null; }
+      dynamic quote;
+      try { quote = await Api.price(); } catch (_) { quote = null; }
       if (!mounted) return;
       setState(() {
         _p = Portfolio.fromJson(p);
         _fee = fee != null ? FeeConfig.fromJson(fee) : null;
+        _quote = quote != null ? PriceQuote.fromJson(quote) : null;
       });
     } on ApiError catch (e) {
       if (mounted) showError(context, e.message);
@@ -158,20 +162,37 @@ class _TradeTabState extends State<TradeTab> {
   }
 
   Widget _priceCard() {
-    final p = _p;
+    final q = _quote;
+    final mid = q?.price ?? _p?.currentPrice ?? 0;
+    final buy = q?.buyPrice ?? mid;
+    final sell = q?.sellPrice ?? mid;
     return GoldCard(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
-            Text('实时金价（元/克）', style: TextStyle(fontSize: 12, color: Color(0xFF8A7A68))),
-            SizedBox(height: 4),
-            Text('Au99.99 上金所', style: TextStyle(fontSize: 11, color: Colors.grey)),
-          ]),
-          Text(p != null ? p.currentPrice.toStringAsFixed(2) : '--', style: const TextStyle(fontSize: 30, fontWeight: FontWeight.bold, color: Color(0xFFC0392B))),
-        ],
-      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          const Text('实时金价 Au99.99（元/克）', style: TextStyle(fontSize: 12, color: Color(0xFF8A7A68))),
+          Text('中间价 ${mid.toStringAsFixed(2)}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+        ]),
+        const SizedBox(height: 12),
+        Row(children: [
+          Expanded(child: _quoteCell('实时买入价', buy, const Color(0xFFE23E3E))),
+          const SizedBox(width: 12),
+          Expanded(child: _quoteCell('实时卖出价', sell, const Color(0xFF1FA463))),
+        ]),
+      ]),
+    );
+  }
+
+  Widget _quoteCell(String label, double price, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      decoration: BoxDecoration(color: color.withOpacity(0.06), borderRadius: BorderRadius.circular(10)),
+      child: Column(children: [
+        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+        const SizedBox(height: 4),
+        Text(price > 0 ? price.toStringAsFixed(2) : '--',
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: color)),
+      ]),
     );
   }
 
