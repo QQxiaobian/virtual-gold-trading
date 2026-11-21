@@ -19,6 +19,11 @@ cp -r backend/app "$PKG/backend/"
 cp backend/Dockerfile backend/requirements.txt backend/.env.example "$PKG/backend/"
 find "$PKG/backend" -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true
 
+# Web 前端（Flutter Web 构建产物 + nginx 反代配置）
+mkdir -p "$PKG/web" "$PKG/app/build"
+cp -r app/build/web "$PKG/app/build/web"
+cp web/nginx.conf "$PKG/web/nginx.conf"
+
 # Docker 与配置、文档
 cp docker-compose.yml .env.example README.md CHANGELOG.md VERSION LICENSE "$PKG/"
 
@@ -32,17 +37,21 @@ cat > "$PKG/部署说明.txt" << EOF
   2. cd 进入该目录
   3. cp .env.example .env  然后编辑 .env，务必修改 SECRET_KEY 和管理员密码
   4. docker compose up -d --build
-  5. 浏览器访问 http://<NAS_IP>:8100/docs 验证后端
+  5. 验证：
+     - 后端 API：http://<NAS_IP>:8100/docs
+     - 网页端：  http://<NAS_IP>:8101
 
-二、默认端口 8100
-  如需修改，编辑 docker-compose.yml 的 ports 映射（如 "9000:8000"）
+二、默认端口
+  - 后端 API：8100（docker-compose 中 "8100:8000"）
+  - 网页 Web：8101（docker-compose 中 "8101:80"）
+  如需修改，编辑 docker-compose.yml 的 ports 映射
 
 三、数据持久化与备份
   数据库在 backend/data/ 目录，定期备份该目录即可
 
 四、客户端
-  Android：安装同版本 Release 附带的 APK
-  网页端：用浏览器打开后端地址；App 内「我的 → 服务器设置」填 http://<NAS_IP>:8100
+  - 网页端：浏览器打开 http://<NAS_IP>:8101（无需配置，Web 已内置反代 /api 到后端）
+  - Android：安装同版本 Release 附带的 APK，首次进入在登录页点「服务器」填 http://<NAS_IP>:8100
 
 五、安全
   默认管理员 admin / admin123，登录后请立即修改
