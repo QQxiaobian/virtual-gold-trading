@@ -223,7 +223,7 @@ class _OverviewTabState extends State<OverviewTab> {
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: ['realtime', '1m', '3m', '6m', '1y'].map((r) => _rangeChip(r)).toList(),
+            children: ['realtime', '1m', '3m', '6m', '1y', 'all'].map((r) => _rangeChip(r)).toList(),
           ),
         ],
       ),
@@ -245,5 +245,5 @@ class _OverviewTabState extends State<OverviewTab> {
     );
   }
 
-  String _rangeLabel(String r) => {'realtime': '实时', '1m': '近1月', '3m': '近3月', '6m': '近半年', '1y': '近1年'}[r] ?? r;
+  String _rangeLabel(String r) => {'realtime': '实时', '1m': '近1月', '3m': '近3月', '6m': '近半年', '1y': '近1年', 'all': '全部'}[r] ?? r;
 }
