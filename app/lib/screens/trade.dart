@@ -26,7 +26,7 @@ class _TradeTabState extends State<TradeTab> {
     try {
       final p = await Api.portfolio();
       dynamic fee;
-      try { fee = await Api.adminFeeConfig(); } catch (_) { fee = null; }
+      try { fee = await Api.feeConfigPublic(); } catch (_) { fee = null; }
       if (!mounted) return;
       setState(() {
         _p = Portfolio.fromJson(p);
