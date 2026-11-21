@@ -61,6 +61,7 @@ class TransactionOut(BaseModel):
     balance_after: float
     realized_pnl: float
     note: str
+    refunded: bool = False
     created_at: datetime
     model_config = {"from_attributes": True}
 
@@ -115,3 +116,4 @@ class FeeConfigOut(BaseModel):
     buy_fee_per_gram: float
     sell_fee_per_gram: float
     min_fee: float
+    allow_user_recharge: bool = False
