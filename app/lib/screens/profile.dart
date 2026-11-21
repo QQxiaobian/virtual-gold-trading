@@ -67,7 +67,7 @@ class _ProfileTabState extends State<ProfileTab> {
     final ctrl = TextEditingController(text: Api.baseUrl);
     showDialog(context: context, builder: (ctx) => AlertDialog(
       title: const Text('服务器地址'),
-      content: TextField(controller: ctrl, decoration: const InputDecoration(labelText: '如 http://192.168.1.10:8000', border: OutlineInputBorder())),
+      content: TextField(controller: ctrl, decoration: const InputDecoration(labelText: '如 http://192.168.1.10:8100', border: OutlineInputBorder())),
       actions: [
         TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
         ElevatedButton(onPressed: () async {
