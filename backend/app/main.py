@@ -1,7 +1,10 @@
 """虚拟黄金交易系统 - FastAPI 主入口。"""
+import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from .config import settings
 from .database import Base, engine, SessionLocal
@@ -9,6 +12,11 @@ from . import models
 from .auth import hash_password
 from .services import config_service, scheduler
 from .routers import auth, market, trade, admin
+
+# Web 静态文件目录：Docker 镜像内由 Dockerfile COPY 到 /app/web。
+# 本地开发时可通过 WEB_DIR 环境变量指向 app/build/web。
+WEB_DIR = os.environ.get("WEB_DIR", "/app/web")
+_web_index = os.path.join(WEB_DIR, "index.html")
 
 
 def _migrate():
@@ -64,11 +72,29 @@ app.include_router(trade.router)
 app.include_router(admin.router)
 
 
-@app.get("/")
-def root():
-    return {"name": settings.APP_NAME, "version": settings.VERSION, "docs": "/docs"}
-
-
 @app.get("/api/health")
 def health():
     return {"status": "ok", "version": settings.VERSION}
+
+
+# ---------- 托管 Flutter Web 静态站点 ----------
+# Mount 必须在所有 API 路由注册之后；StaticFiles(html=True) 让 / 返回 index.html。
+if os.path.isdir(WEB_DIR):
+    # 先挂载具体静态资源目录（assets、icons、flutter.js 等由 StaticFiles 处理）
+    app.mount("/assets", StaticFiles(directory=os.path.join(WEB_DIR, "assets")), name="assets") if os.path.isdir(os.path.join(WEB_DIR, "assets")) else None
+    app.mount("/icons", StaticFiles(directory=os.path.join(WEB_DIR, "icons")), name="icons") if os.path.isdir(os.path.join(WEB_DIR, "icons")) else None
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    def web_spa(full_path: str):
+        """单页应用回退：优先返回真实静态文件，否则返回 index.html。"""
+        # 规范化路径，防止目录穿越
+        candidate = os.path.normpath(os.path.join(WEB_DIR, full_path))
+        if candidate.startswith(WEB_DIR) and os.path.isfile(candidate):
+            return FileResponse(candidate)
+        if os.path.isfile(_web_index):
+            return FileResponse(_web_index)
+        return HTMLResponse("<h3>Web 未构建</h3>", status_code=404)
+else:
+    @app.get("/")
+    def root_fallback():
+        return {"name": settings.APP_NAME, "version": settings.VERSION, "docs": "/docs"}
