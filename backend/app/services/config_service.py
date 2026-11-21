@@ -12,7 +12,13 @@ DEFAULT_CONFIGS = {
     "sell_fee_per_gram": (str(settings.DEFAULT_SELL_FEE_PER_GRAM), "卖出每克固定手续费（元）"),
     "min_fee": (str(settings.DEFAULT_MIN_FEE), "单笔最低手续费（元）"),
     "price_interval": (str(settings.PRICE_FETCH_INTERVAL_SECONDS), "金价抓取间隔（秒）"),
+    "allow_user_recharge": ("1" if settings.DEFAULT_ALLOW_USER_RECHARGE else "0", "是否允许用户自助充值：1=允许 / 0=关闭"),
 }
+
+
+def recharge_enabled(db: Session) -> bool:
+    """用户自助充值开关是否开启。"""
+    return get_config(db, "allow_user_recharge", "0").strip() in ("1", "true", "True", "yes")
 
 
 def init_configs(db: Session):
@@ -43,6 +49,7 @@ def get_fee_config(db: Session) -> dict:
         "buy_fee_per_gram": get_float(db, "buy_fee_per_gram", settings.DEFAULT_BUY_FEE_PER_GRAM),
         "sell_fee_per_gram": get_float(db, "sell_fee_per_gram", settings.DEFAULT_SELL_FEE_PER_GRAM),
         "min_fee": get_float(db, "min_fee", settings.DEFAULT_MIN_FEE),
+        "allow_user_recharge": recharge_enabled(db),
     }
 
 
