@@ -49,6 +49,7 @@ class Transaction(Base):
     balance_after = Column(Float, nullable=False)
     realized_pnl = Column(Float, default=0.0)  # 已实现盈亏（卖出时）
     note = Column(String(200), default="")
+    refunded = Column(Boolean, default=False, nullable=False)  # 是否已被管理员撤销退款
     created_at = Column(DateTime, default=datetime.now, nullable=False, index=True)
 
 
