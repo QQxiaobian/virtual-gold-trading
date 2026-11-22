@@ -68,12 +68,28 @@ def fetch_all_prices() -> dict:
     return result
 
 
+def _store_sina_point(db: Session, price: float, min_gap_seconds: int = 120) -> bool:
+    """实时点入库去重：价格未变且距上一条 sina 点不足 min_gap_seconds 秒则跳过。
+
+    避免每 30 秒抓一次、价格不变时无限堆积同价点，把历史走势图右半段挤成一条直线。
+    """
+    last = db.query(models.PriceHistory).filter(
+        models.PriceHistory.source == "sina"
+    ).order_by(models.PriceHistory.id.desc()).first()
+    if last:
+        gap = (datetime.now() - last.created_at).total_seconds()
+        if abs(last.price - price) < 1e-6 and 0 <= gap < min_gap_seconds:
+            return False
+    db.add(models.PriceHistory(price=price, source="sina"))
+    db.commit()
+    return True
+
+
 def get_current_price(db: Session) -> float:
     """当前成交价：优先实时抓取，失败则用数据库最近一条历史价。"""
     price = fetch_sina_price()
     if price:
-        db.add(models.PriceHistory(price=price, source="sina"))
-        db.commit()
+        _store_sina_point(db, price)
         return price
     last = db.query(models.PriceHistory).order_by(models.PriceHistory.id.desc()).first()
     return last.price if last else 0.0
@@ -83,8 +99,7 @@ def fetch_and_store(db: Session) -> float | None:
     """定时任务调用：抓取并入库，返回价格。"""
     price = fetch_sina_price()
     if price:
-        db.add(models.PriceHistory(price=price, source="sina"))
-        db.commit()
+        _store_sina_point(db, price)
     return price
 
 
