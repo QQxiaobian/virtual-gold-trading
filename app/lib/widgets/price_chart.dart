@@ -101,16 +101,25 @@ class _ChartPainter extends CustomPainter {
     final maxIdx = prices.indexOf(rawMax);
     final minIdx = prices.indexOf(rawMin);
     final hiStyle = TextStyle(color: const Color(0xFFB57B18), fontSize: 10, fontWeight: FontWeight.bold);
-    _drawText(canvas, prices[maxIdx].toStringAsFixed(2), Offset(xs[maxIdx] + 4, ys[maxIdx] - 4), hiStyle);
-    _drawText(canvas, prices[minIdx].toStringAsFixed(2), Offset(xs[minIdx] + 4, ys[minIdx] - 4), hiStyle);
+    // 标注放在点的上方，并夹紧 X 范围，避免最右/最左端的标注越界被截断或与日期轴重叠。
+    _drawTextClamped(
+      canvas, prices[maxIdx].toStringAsFixed(2), xs[maxIdx], ys[maxIdx] - 16, hiStyle,
+      left: padL, right: size.width - padR,
+    );
+    _drawTextClamped(
+      canvas, prices[minIdx].toStringAsFixed(2), xs[minIdx], ys[minIdx] - 16, hiStyle,
+      left: padL, right: size.width - padR,
+    );
 
-    // X 轴日期刻度：按时间比例均匀取 5 个，居中绘制并夹在绘图区内
+    // X 轴日期刻度：短格式 MM-DD，按可用宽度自适应标签数量，避免窄屏标签重叠。
     final dateStyle = TextStyle(color: Colors.grey[500], fontSize: 10);
-    for (int i = 0; i <= 4; i++) {
-      final ratio = i / 4;
+    final sampleW = _textWidth('08-26', dateStyle);
+    final maxLabels = (chartW / (sampleW + 22)).floor().clamp(2, 5);
+    for (int i = 0; i < maxLabels; i++) {
+      final ratio = maxLabels == 1 ? 0.0 : i / (maxLabels - 1);
       final dt = DateTime.fromMillisecondsSinceEpoch((t0 + tSpan * ratio).round());
       _drawTextCentered(
-        canvas, _fmtDate(dt), padL + chartW * ratio, size.height - 15, dateStyle,
+        canvas, _fmtDateShort(dt), padL + chartW * ratio, size.height - 15, dateStyle,
         left: padL, right: size.width - padR,
       );
     }
@@ -130,12 +139,20 @@ class _ChartPainter extends CustomPainter {
 
   String _fmtTick(double v, double step) => step >= 1 ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
 
-  void _drawText(Canvas canvas, String text, Offset pos, TextStyle style) {
+  double _textWidth(String text, TextStyle style) {
+    final tp = TextPainter(text: TextSpan(text: text, style: style), textDirection: TextDirection.ltr);
+    tp.layout();
+    return tp.width;
+  }
+
+  void _drawText(
+    Canvas canvas, String text, Offset pos, TextStyle style) {
     final tp = TextPainter(text: TextSpan(text: text, style: style), textDirection: TextDirection.ltr);
     tp.layout();
     tp.paint(canvas, pos);
   }
 
+  /// 以 cx 为中心绘制文本，并夹紧在 [left, right] 内，防止越界被截断。
   void _drawTextCentered(
     Canvas canvas, String text, double cx, double y, TextStyle style,
     {required double left, required double right}) {
@@ -147,7 +164,22 @@ class _ChartPainter extends CustomPainter {
     tp.paint(canvas, Offset(x, y));
   }
 
-  String _fmtDate(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  /// 以锚点 x 为起点绘制文本（略右偏移），越界时自动翻转到锚点左侧，保证完整可见。
+  void _drawTextClamped(
+    Canvas canvas, String text, double anchorX, double y, TextStyle style,
+    {required double left, required double right}) {
+    final tp = TextPainter(text: TextSpan(text: text, style: style), textDirection: TextDirection.ltr);
+    tp.layout();
+    final w = tp.width;
+    double x = anchorX + 4;              // 默认在锚点右侧
+    if (x + w > right) x = anchorX - w - 4;  // 右侧放不下则翻到左侧
+    if (x < left) x = left;              // 左边界兜底
+    if (x + w > right) x = right - w;    // 右边界兜底
+    tp.paint(canvas, Offset(x, y));
+  }
+
+  String _fmtDateShort(DateTime d) =>
+      '${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   @override
   bool shouldRepaint(covariant _ChartPainter old) => old.points != points;
