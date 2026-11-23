@@ -84,15 +84,23 @@ if os.path.isdir(WEB_DIR):
     app.mount("/assets", StaticFiles(directory=os.path.join(WEB_DIR, "assets")), name="assets") if os.path.isdir(os.path.join(WEB_DIR, "assets")) else None
     app.mount("/icons", StaticFiles(directory=os.path.join(WEB_DIR, "icons")), name="icons") if os.path.isdir(os.path.join(WEB_DIR, "icons")) else None
 
+    # 禁用浏览器缓存：自用内网系统无需缓存，避免部署新版后浏览器仍加载旧的
+    # main.dart.js / index.html（尤其曾注册过 service worker 的设备）。
+    _no_cache = {
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0",
+    }
+
     @app.get("/{full_path:path}", include_in_schema=False)
     def web_spa(full_path: str):
         """单页应用回退：优先返回真实静态文件，否则返回 index.html。"""
         # 规范化路径，防止目录穿越
         candidate = os.path.normpath(os.path.join(WEB_DIR, full_path))
         if candidate.startswith(WEB_DIR) and os.path.isfile(candidate):
-            return FileResponse(candidate)
+            return FileResponse(candidate, headers=_no_cache)
         if os.path.isfile(_web_index):
-            return FileResponse(_web_index)
+            return FileResponse(_web_index, headers=_no_cache)
         return HTMLResponse("<h3>Web 未构建</h3>", status_code=404)
 else:
     @app.get("/")
