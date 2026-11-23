@@ -14,7 +14,7 @@ def _read_version() -> str:
                     return v
             except OSError:
                 pass
-    return "1.2.1"
+    return "1.2.2"
 
 
 class Settings(BaseSettings):
