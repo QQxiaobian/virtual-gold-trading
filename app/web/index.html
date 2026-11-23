@@ -32,22 +32,26 @@
   <title>gold_app</title>
   <link rel="manifest" href="manifest.json">
 
-  <script>
-    // The value below is injected by flutter build, do not touch.
-    var serviceWorkerVersion = null;
-  </script>
   <!-- This script adds the flutter initialization JS code -->
   <script src="flutter.js" defer></script>
 </head>
 <body>
   <script>
+    // 自用内网系统：不注册 Service Worker，避免旧 main.dart.js 被永久缓存
+    // 导致部署新版后仍显示旧页面。配合后端 no-cache 响应头，刷新即取最新代码。
+    // 同时注销老版本注册过的 SW 并清空其缓存，让已更新过的设备也能立即生效。
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(regs) {
+        for (var i = 0; i < regs.length; i++) regs[i].unregister();
+      }).catch(function() {});
+      if (window.caches && caches.keys) {
+        caches.keys().then(function(keys) {
+          for (var j = 0; j < keys.length; j++) caches.delete(keys[j]);
+        }).catch(function() {});
+      }
+    }
     window.addEventListener('load', function(ev) {
-      // Download main.dart.js
-      _flutter.loader.loadEntrypoint({
-        serviceWorker: {
-          serviceWorkerVersion: serviceWorkerVersion,
-        }
-      }).then(function(engineInitializer) {
+      _flutter.loader.loadEntrypoint().then(function(engineInitializer) {
         return engineInitializer.initializeEngine();
       }).then(function(appRunner) {
         return appRunner.runApp();
